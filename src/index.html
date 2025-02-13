@@ -1,17 +1,95 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="styles.css">
-  <title>Vanilla JavaScript App</title>
+    <title>OAuth 2.0 Demo</title>
 </head>
-
 <body>
-  <main>
-    <h1>Vanilla JavaScript App</h1>
-  </main>
-</body>
+    <h1>OAuth 2.0 Authorization Code Flow Demo</h1>
+    <div id="status"></div>
+    <button id="loginBtn" onclick="startAuth()">Start OAuth Flow</button>
 
+    <script>
+        // Configuration
+        const config = {
+            authEndpoint: 'https://gayhkhf-jp33584.snowflakecomputing.com/oauth/authorize',
+            tokenEndpoint: 'https://gayhkhf-jp33584.snowflakecomputing.com/oauth/token-request',
+            clientId: '2X2rjK5YMFUzHKR537imVxo4P70=',
+            clientSecret: 'fM4IFh8CNtiBfZF1ju4fQfCitnNTEWDuCZvLj7NkeQU=',
+            redirectUri: 'http://localhost:8080/callback.html'
+        };
+
+        // Start the authorization flow
+        function startAuth() {
+            // Generate random state for security
+            const state = Math.random().toString(36).substring(7);
+            localStorage.setItem('oauth_state', state);
+
+            // Build authorization URL
+            const authUrl = `${config.authEndpoint}?` +
+                `client_id=${encodeURIComponent(config.clientId)}&` +
+                `response_type=code&` +
+                `redirect_uri=${encodeURIComponent(config.redirectUri)}&` +
+                `state=${encodeURIComponent(state)}&` +
+                `scope=session:role:CORTEX_USER_ROLE`;
+
+            // Redirect to authorization endpoint
+            window.location.href = authUrl;
+        }
+
+        // Handle the redirect with authorization code
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const state = urlParams.get('state');
+            const storedState = localStorage.getItem('oauth_state');
+
+            if (code) {
+                document.getElementById('status').innerHTML = 'Received code, requesting token...';
+
+                // Verify state
+                if (state !== storedState) {
+                    document.getElementById('status').innerHTML = 'State mismatch! Possible CSRF attack';
+                    return;
+                }
+
+                // Exchange code for token
+                requestToken(code);
+            }
+        };
+
+        // Request access token
+        async function requestToken(code) {
+            try {
+                // Create Basic auth header
+                const basicAuth = btoa(`${config.clientId}:${config.clientSecret}`);
+
+                const response = await fetch(config.tokenEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Basic ${basicAuth}`,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        'grant_type': 'authorization_code',
+                        'code': code,
+                        'redirect_uri': config.redirectUri
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.access_token) {
+                    document.getElementById('status').innerHTML = 
+                        `Access Token: ${data.access_token}`;
+                } else {
+                    document.getElementById('status').innerHTML = 
+                        'Error getting access token';
+                }
+            } catch (error) {
+                document.getElementById('status').innerHTML = 
+                    `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
 </html>

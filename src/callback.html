@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>OAuth 2.0 Callback</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .parameter {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+
+        .parameter-name {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .parameter-value {
+            word-break: break-all;
+            color: #e74c3c;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .token-section {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f5e9;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>OAuth 2.0 Callback Results</h1>
+
+        <div id="callback-params"></div>
+        <div id="state-verification" class="status"></div>
+        <div id="token-response" class="token-section"></div>
+
+        <script>
+            // Function to safely encode HTML to prevent XSS
+            function escapeHtml(unsafe) {
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            // Function to display parameters
+            function displayParameter(name, value) {
+                return `
+                    <div class="parameter">
+                        <span class="parameter-name">${name}:</span>
+                        <span class="parameter-value">${escapeHtml(value || 'Not provided')}</span>
+                    </div>
+                `;
+            }
+
+            // Parse and display URL parameters
+            window.onload = function () {
+                const urlParams = new URLSearchParams(window.location.search);
+                const paramsDiv = document.getElementById('callback-params');
+                const stateVerificationDiv = document.getElementById('state-verification');
+
+                // Display all received parameters
+                paramsDiv.innerHTML = '<h2>Received Parameters:</h2>';
+
+                // Always check for these common OAuth parameters
+                const commonParams = ['code', 'state', 'scope', 'error', 'error_description'];
+                commonParams.forEach(param => {
+                    const value = urlParams.get(param);
+                    if (value) {
+                        paramsDiv.innerHTML += displayParameter(param, value);
+                    }
+                });
+
+                // Display any additional parameters
+                urlParams.forEach((value, key) => {
+                    if (!commonParams.includes(key)) {
+                        paramsDiv.innerHTML += displayParameter(key, value);
+                    }
+                });
+
+                // Verify state parameter
+                const receivedState = urlParams.get('state');
+                const storedState = localStorage.getItem('oauth_state');
+
+                if (receivedState && storedState) {
+                    if (receivedState === storedState) {
+                        stateVerificationDiv.innerHTML = 'State verification: SUCCESS - States match';
+                        stateVerificationDiv.classList.add('success');
+                    } else {
+                        stateVerificationDiv.innerHTML = 'State verification: FAILED - States do not match (Possible CSRF attack)';
+                        stateVerificationDiv.classList.add('error');
+                    }
+                } else {
+                    stateVerificationDiv.innerHTML = 'State verification: FAILED - Missing state parameter';
+                    stateVerificationDiv.classList.add('error');
+                }
+
+                // If there's an error, display it prominently
+                const error = urlParams.get('error');
+                const errorDescription = urlParams.get('error_description');
+                if (error) {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.classList.add('status', 'error');
+                    errorDiv.innerHTML = `
+                        <h3>Error Occurred:</h3>
+                        <p>Error: ${escapeHtml(error)}</p>
+                        ${errorDescription ? `<p>Description: ${escapeHtml(errorDescription)}</p>` : ''}
+                    `;
+                    document.querySelector('.container').appendChild(errorDiv);
+                }
+
+                // If we have a code, attempt to exchange it for a token
+                const code = urlParams.get('code');
+                if (code && !error) {
+                    exchangeCodeForToken(code);
+                }
+            };
+
+            // Function to exchange code for token
+            async function exchangeCodeForToken(code) {
+                const tokenResponseDiv = document.getElementById('token-response');
+                tokenResponseDiv.innerHTML = '<h2>Token Exchange:</h2>Processing...';
+
+                try {
+                    // Get configuration from localStorage or hardcoded values
+                    const config = {
+                        tokenEndpoint: 'https://gayhkhf-jp33584.snowflakecomputing.com/oauth/token-request',
+                        clientId: '2X2rjK5YMFUzHKR537imVxo4P70=',
+                        clientSecret: 'fM4IFh8CNtiBfZF1ju4fQfCitnNTEWDuCZvLj7NkeQU=',
+                        redirectUri: window.location.origin + window.location.pathname
+                    };
+
+                    const basicAuth = btoa(`${config.clientId}:${config.clientSecret}`);
+
+                    const response = await fetch(config.tokenEndpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Basic ${basicAuth}`,
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: new URLSearchParams({
+                            'grant_type': 'authorization_code',
+                            'code': code,
+                            'redirect_uri': config.redirectUri
+                        }),
+                        mode: 'no-cors' // This will make the request but you won't be able to read the response
+                    });
+
+                    const data = await response.json();
+
+                    tokenResponseDiv.innerHTML = '<h2>Token Exchange Result:</h2>';
+                    if (data.access_token) {
+                        tokenResponseDiv.innerHTML += `
+                            <div class="parameter">
+                                <span class="parameter-name">Access Token:</span>
+                                <span class="parameter-value">${escapeHtml(data.access_token)}</span>
+                            </div>
+                        `;
+                        if (data.refresh_token) {
+                            tokenResponseDiv.innerHTML += `
+                                <div class="parameter">
+                                    <span class="parameter-name">Refresh Token:</span>
+                                    <span class="parameter-value">${escapeHtml(data.refresh_token)}</span>
+                                </div>
+                            `;
+                        }
+                        if (data.expires_in) {
+                            tokenResponseDiv.innerHTML += `
+                                <div class="parameter">
+                                    <span class="parameter-name">Expires In:</span>
+                                    <span class="parameter-value">${data.expires_in} seconds</span>
+                                </div>
+                            `;
+                        }
+                        if (data.token_type) {
+                            tokenResponseDiv.innerHTML += `
+                                <div class="parameter">
+                                    <span class="parameter-name">Token Type:</span>
+                                    <span class="parameter-value">${escapeHtml(data.token_type)}</span>
+                                </div>
+                            `;
+                        }
+                    } else {
+                        tokenResponseDiv.innerHTML += `
+                            <div class="status error">
+                                Failed to obtain access token
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    tokenResponseDiv.innerHTML = `
+                        <div class="status error">
+                            Error exchanging code for token: ${escapeHtml(error.message)}
+                        </div>
+                    `;
+                }
+            }
+        </script>
+    </div>
+</body>
+
+</html>
