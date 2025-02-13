@@ -59,6 +59,14 @@
             background-color: #e8f5e9;
             border-radius: 4px;
         }
+
+        .curl-command {
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 
@@ -68,7 +76,7 @@
 
         <div id="callback-params"></div>
         <div id="state-verification" class="status"></div>
-        <div id="token-response" class="token-section"></div>
+        <div id="curl-command" class="token-section"></div>
 
         <script>
             // Function to safely encode HTML to prevent XSS
@@ -84,11 +92,11 @@
             // Function to display parameters
             function displayParameter(name, value) {
                 return `
-                    <div class="parameter">
-                        <span class="parameter-name">${name}:</span>
-                        <span class="parameter-value">${escapeHtml(value || 'Not provided')}</span>
-                    </div>
-                `;
+                            <div class="parameter">
+                                <span class="parameter-name">${name}:</span>
+                                <span class="parameter-value">${escapeHtml(value || 'Not provided')}</span>
+                            </div>
+                        `;
             }
 
             // Parse and display URL parameters
@@ -96,6 +104,7 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const paramsDiv = document.getElementById('callback-params');
                 const stateVerificationDiv = document.getElementById('state-verification');
+                const curlCommandDiv = document.getElementById('curl-command');
 
                 // Display all received parameters
                 paramsDiv.innerHTML = '<h2>Received Parameters:</h2>';
@@ -140,98 +149,49 @@
                     const errorDiv = document.createElement('div');
                     errorDiv.classList.add('status', 'error');
                     errorDiv.innerHTML = `
-                        <h3>Error Occurred:</h3>
-                        <p>Error: ${escapeHtml(error)}</p>
-                        ${errorDescription ? `<p>Description: ${escapeHtml(errorDescription)}</p>` : ''}
-                    `;
+                                <h3>Error Occurred:</h3>
+                                <p>Error: ${escapeHtml(error)}</p>
+                                ${errorDescription ? `<p>Description: ${escapeHtml(errorDescription)}</p>` : ''}
+                            `;
                     document.querySelector('.container').appendChild(errorDiv);
                 }
 
-                // If we have a code, attempt to exchange it for a token
+                // If we have a code, generate the curl command
                 const code = urlParams.get('code');
                 if (code && !error) {
-                    exchangeCodeForToken(code);
+                    generateCurlCommand(code);
                 }
             };
 
-            // Function to exchange code for token
-            async function exchangeCodeForToken(code) {
-                const tokenResponseDiv = document.getElementById('token-response');
-                tokenResponseDiv.innerHTML = '<h2>Token Exchange:</h2>Processing...';
+            // Function to generate curl command
+            function generateCurlCommand(code) {
+                const curlCommandDiv = document.getElementById('curl-command');
+                curlCommandDiv.innerHTML = '<h2>Token Exchange:</h2>';
 
-                try {
-                    // Get configuration from localStorage or hardcoded values
-                    const config = {
-                        tokenEndpoint: 'https://gayhkhf-jp33584.snowflakecomputing.com/oauth/token-request',
-                        clientId: 'ge1KIYOff9ZpecnVG8OnPI2b8WY=',
-                        clientSecret: 'rdmvnMIgAggZ2xBZi9ApE7CTGugS82X+x5lVthrrDGY=',
-                        redirectUri: 'https://purple-dune-0e757cb10.4.azurestaticapps.net/callback.html'
-                    };
+                // Get configuration from localStorage or hardcoded values
+                const config = {
+                    tokenEndpoint: 'https://gayhkhf-jp33584.snowflakecomputing.com/oauth/token-request',
+                    clientId: 'ge1KIYOff9ZpecnVG8OnPI2b8WY=',
+                    clientSecret: 'rdmvnMIgAggZ2xBZi9ApE7CTGugS82X+x5lVthrrDGY=',
+                    redirectUri: 'https://purple-dune-0e757cb10.4.azurestaticapps.net/callback.html'
+                };
 
-                    const basicAuth = (`${config.clientId}:${config.clientSecret}`);
+                const basicAuth = btoa(`${config.clientId}:${config.clientSecret}`);
 
-                    const response = await fetch(config.tokenEndpoint, {
-                        method: 'POST',
-                        mode: 'no-cors', // Disable CORS
-                        headers: {
-                            'Authorization': `Basic ${basicAuth}`,
-                            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-                        },
-                        body: new URLSearchParams({
-                            'grant_type': 'authorization_code',
-                            'code': code,
-                            'redirect_uri': config.redirectUri
-                        })
-                    });
+                const curlCommand = `
+                            curl -X POST ${config.tokenEndpoint} \\
+                            -H "Authorization: Basic ${basicAuth}" \\
+                            -H "Content-Type: application/x-www-form-urlencoded;charset=UTF-8" \\
+                            -d "grant_type=authorization_code" \\
+                            -d "code=${code}" \\
+                            -d "redirect_uri=${config.redirectUri}"
+                        `;
 
-                    const data = await response.json();
-
-                    tokenResponseDiv.innerHTML = '<h2>Token Exchange Result:</h2>';
-                    if (data.access_token) {
-                        tokenResponseDiv.innerHTML += `
-                            <div class="parameter">
-                                <span class="parameter-name">Access Token:</span>
-                                <span class="parameter-value">${escapeHtml(data.access_token)}</span>
+                curlCommandDiv.innerHTML += `
+                            <div class="curl-command">
+                                ${escapeHtml(curlCommand.trim())}
                             </div>
                         `;
-                        if (data.refresh_token) {
-                            tokenResponseDiv.innerHTML += `
-                                <div class="parameter">
-                                    <span class="parameter-name">Refresh Token:</span>
-                                    <span class="parameter-value">${escapeHtml(data.refresh_token)}</span>
-                                </div>
-                            `;
-                        }
-                        if (data.expires_in) {
-                            tokenResponseDiv.innerHTML += `
-                                <div class="parameter">
-                                    <span class="parameter-name">Expires In:</span>
-                                    <span class="parameter-value">${data.expires_in} seconds</span>
-                                </div>
-                            `;
-                        }
-                        if (data.token_type) {
-                            tokenResponseDiv.innerHTML += `
-                                <div class="parameter">
-                                    <span class="parameter-name">Token Type:</span>
-                                    <span class="parameter-value">${escapeHtml(data.token_type)}</span>
-                                </div>
-                            `;
-                        }
-                    } else {
-                        tokenResponseDiv.innerHTML += `
-                            <div class="status error">
-                                Failed to obtain access token
-                            </div>
-                        `;
-                    }
-                } catch (error) {
-                    tokenResponseDiv.innerHTML = `
-                        <div class="status error">
-                            Error exchanging code for token: ${escapeHtml(error.message)}
-                        </div>
-                    `;
-                }
             }
         </script>
     </div>
