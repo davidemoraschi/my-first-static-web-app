@@ -168,7 +168,7 @@
                         redirectUri: window.location.origin + window.location.pathname
                     };
 
-                    const basicAuth = btoa(`${config.clientId}:${config.clientSecret}`);
+                    const basicAuth = (`${config.clientId}:${config.clientSecret}`);
 
                     const response = await fetch(config.tokenEndpoint, {
                         method: 'POST',
