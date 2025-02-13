@@ -184,7 +184,7 @@
                             -H "Content-Type: application/x-www-form-urlencoded;charset=UTF-8" ^
                             -d "grant_type=authorization_code" ^
                             -d "code=${code}" ^
-                            -d "redirect_uri=${config.redirectUri}"
+                            -d "redirect_uri=${config.redirectUri}" -o token.json
                         `;
 
                 curlCommandDiv.innerHTML += `
