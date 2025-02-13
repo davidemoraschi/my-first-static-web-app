@@ -180,8 +180,7 @@
                             'grant_type': 'authorization_code',
                             'code': code,
                             'redirect_uri': config.redirectUri
-                        }),
-                        mode: 'no-cors' // This will make the request but you won't be able to read the response
+                        })
                     });
 
                     const data = await response.json();
